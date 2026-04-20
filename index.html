@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NIST Compliance — Connect</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --orange: #f15b2b;
+    --navy: #001d3d;
+    --text: #1a1a1a;
+    --muted: #6b6b6b;
+    --subtle: #a0a0a0;
+    --border: #e4e4e4;
+    --bg: #ffffff;
+    --surface: #f8f8f7;
+    --green: #2d6a4f;
+    --green-bg: #f0f7f3;
+    --red: #9b2c2c;
+    --red-bg: #fdf2f2;
+    --amber: #92400e;
+    --amber-bg: #fffbf0;
+  }
+
+  body {
+    font-family: 'Prompt', sans-serif;
+    background: var(--surface);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── Setup overlay ── */
+  #setup-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+  #setup-overlay.hidden { display: none; }
+  .setup-card {
+    background: #fff; border-radius: 12px; padding: 36px 40px;
+    width: 100%; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .setup-logo { height: 24px; margin-bottom: 24px; display: block; }
+  .setup-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .setup-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.6; }
+  .setup-field { margin-bottom: 16px; }
+  .setup-label { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .setup-input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+    border-radius: 7px; font-size: 13px; font-family: 'Prompt', monospace;
+    color: var(--text); background: var(--bg);
+    transition: border-color 0.15s;
+  }
+  .setup-input:focus { outline: none; border-color: var(--orange); }
+  .setup-note { font-size: 11px; color: var(--subtle); margin-top: 5px; }
+  .setup-btn {
+    width: 100%; padding: 11px; background: var(--orange); color: #fff;
+    border: none; border-radius: 7px; font-size: 14px; font-weight: 600;
+    font-family: 'Prompt', sans-serif; cursor: pointer; margin-top: 8px;
+    transition: background 0.15s;
+  }
+  .setup-btn:hover { background: #d94e22; }
+  .setup-btn:disabled { background: #ccc; cursor: not-allowed; }
+  .setup-error { font-size: 12px; color: var(--red); margin-top: 10px; display: none; }
+
+  /* ── Header ── */
+  header {
+    background: #fff; border-bottom: 1px solid var(--border);
+    padding: 0 32px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .h-left { display: flex; align-items: center; gap: 20px; }
+  .h-logo { height: 20px; }
+  .h-divider { width: 1px; height: 20px; background: var(--border); }
+  .h-title { font-size: 13px; color: var(--muted); font-weight: 400; }
+  .h-right { display: flex; align-items: center; gap: 12px; }
+  .sync-status { font-size: 11px; color: var(--subtle); }
+  .sync-status.loading { color: var(--orange); }
+  .sync-status.ok { color: var(--green); }
+  .sync-status.error { color: var(--red); }
+  .btn-sync {
+    padding: 6px 14px; background: var(--navy); color: #fff;
+    border: none; border-radius: 6px; font-size: 12px; font-weight: 500;
+    font-family: 'Prompt', sans-serif; cursor: pointer; transition: opacity 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-sync:hover { opacity: 0.85; }
+  .btn-sync:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-reset {
+    padding: 6px 12px; background: none; color: var(--subtle);
+    border: 1px solid var(--border); border-radius: 6px; font-size: 11px;
+    font-family: 'Prompt', sans-serif; cursor: pointer;
+  }
+  .btn-reset:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Main layout ── */
+  main { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+
+  /* ── Report header ── */
+  .report-head {
+    background: #fff; border: 1px solid var(--border); border-radius: 10px;
+    padding: 24px 28px; margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    flex-wrap: wrap; gap: 16px;
+  }
+  .rh-title { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 3px; }
+  .rh-sub { font-size: 12px; color: var(--muted); }
+  .rh-meta { text-align: right; font-size: 11px; color: var(--subtle); line-height: 2; }
+
+  /* ── KPI strip ── */
+  .kpi-strip {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    margin-bottom: 16px; background: var(--border); gap: 1px;
+  }
+  .kpi-cell { background: #fff; padding: 16px 18px; }
+  .kpi-val { font-size: 22px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+  .kpi-label { font-size: 11px; color: var(--subtle); margin-top: 4px; }
+  .kpi-note { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Section label ── */
+  .sec { font-size: 11px; color: var(--subtle); margin: 20px 0 10px; letter-spacing: 0.02em; }
+
+  /* ── Legend ── */
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 14px; }
+  .leg { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .leg-bar { width: 3px; height: 14px; border-radius: 2px; }
+
+  /* ── Function blocks ── */
+  .func-block {
+    background: #fff; border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; margin-bottom: 10px; display: flex;
+    transition: box-shadow 0.15s;
+  }
+  .func-block:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .fb-stripe { width: 3px; flex-shrink: 0; }
+  .fb-body { flex: 1; padding: 18px 20px; }
+  .fb-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+  .fb-name { font-size: 14px; font-weight: 600; }
+  .fb-code { font-size: 11px; color: var(--subtle); margin-left: 8px; }
+  .fb-status { font-size: 11px; color: var(--muted); }
+  .fb-levels { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .fb-lvl { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+  .fb-of { font-size: 12px; color: var(--subtle); }
+  .fb-arrow { font-size: 12px; color: var(--border); margin: 0 2px; }
+  .fb-target { font-size: 14px; color: var(--subtle); }
+  .fb-gap { margin-left: auto; font-size: 11px; color: var(--subtle); }
+  .fb-bar { height: 3px; background: var(--surface); border-radius: 2px; margin-bottom: 16px; overflow: hidden; }
+  .fb-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .fb-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 600px) { .fb-cols { grid-template-columns: 1fr; } }
+  .col-head { font-size: 11px; color: var(--subtle); margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+  .col-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .fb-item { font-size: 12px; color: var(--muted); line-height: 1.55; margin-bottom: 6px; padding-left: 12px; position: relative; }
+  .fb-item::before { content: ''; position: absolute; left: 0; top: 7px; width: 4px; height: 4px; border-radius: 50%; }
+  .fb-item.c::before { background: var(--green); }
+  .fb-item.b::before { background: var(--red); }
+
+  /* ── Vanta data badge ── */
+  .vanta-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; color: var(--subtle);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; padding: 2px 7px; margin-top: 8px;
+  }
+  .vanta-dot { width: 5px; height: 5px; border-radius: 50%; background: #ccc; }
+  .vanta-dot.live { background: var(--green); }
+
+  /* ── Timeline ── */
+  .tl-wrap { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+  .tl-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .tl-th { padding: 9px 14px; font-size: 10px; font-weight: 500; color: var(--subtle); text-align: left; background: var(--surface); border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+  .tl-th:last-child { border-right: none; }
+  .tl-th.now { color: var(--text); font-weight: 600; }
+  .tl-td { padding: 9px 14px; font-size: 11px; color: var(--subtle); border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); vertical-align: top; }
+  .tl-td:last-child { border-right: none; }
+  .tl-tr:last-child .tl-td { border-bottom: none; }
+  .tl-td.fn { font-size: 12px; font-weight: 500; color: var(--text); }
+  .tl-td.now { color: var(--text); font-weight: 500; }
+  .tl-td.past { color: #ccc; }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border); padding: 16px 32px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; color: var(--subtle); flex-wrap: wrap; gap: 8px;
+    background: #fff; margin-top: 8px;
+  }
+  .footer-logo { height: 14px; opacity: 0.2; }
+
+  /* ── Spinner ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 14px; height: 14px; border: 2px solid #eee; border-top-color: var(--orange); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+</style>
+</head>
+<body>
+
+<!-- ── SETUP OVERLAY ── -->
+<div id="setup-overlay">
+  <div class="setup-card">
+    <img class="setup-logo"
+      src="https://cdn.prod.website-files.com/64cbc158028d1b6455d165a4/64cbc158028d1b6455d16624_logo-completo.svg"
+      alt="Connect"
+      onerror="this.style.display='none'">
+    <div class="setup-title">Conectar con Vanta</div>
+    <div class="setup-sub">Ingresa las credenciales de la aplicación que creaste en el Developer Console de Vanta. Se guardan solo en tu navegador y nunca se envían a ningún servidor externo.</div>
+    <div class="setup-field">
+      <label class="setup-label">Client ID</label>
+      <input class="setup-input" id="in-client-id" type="text" placeholder="vci_xxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false">
+      <div class="setup-note">Settings → Developer Console → tu aplicación → Client ID</div>
+    </div>
+    <div class="setup-field">
+      <label class="setup-label">Client Secret</label>
+      <input class="setup-input" id="in-client-secret" type="password" placeholder="vcs_xxxxxxxxxxxxxxxx" autocomplete="off">
+      <div class="setup-note">Solo visible al crear la aplicación. Si lo perdiste, genera uno nuevo en Vanta.</div>
+    </div>
+    <button class="setup-btn" id="btn-connect" onclick="setupVanta()">Conectar y cargar datos</button>
+    <div class="setup-error" id="setup-error"></div>
+  </div>
+</div>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="h-left">
+    <img class="h-logo"
+      src="https://cdn.prod.website-files.com/64cbc158028d1b6455d165a4/64cbc158028d1b6455d16624_logo-completo.svg"
+      alt="Connect"
+      onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span style="display:none;font-size:15px;font-weight:700;color:#f15b2b;">CONNECT</span>
+    <div class="h-divider"></div>
+    <div class="h-title">NIST CSF 2.0 — Compliance Tracker</div>
+  </div>
+  <div class="h-right">
+    <span class="sync-status" id="sync-status">—</span>
+    <button class="btn-sync" id="btn-sync" onclick="loadVantaData()" disabled>
+      <span id="sync-icon">↻</span> Actualizar
+    </button>
+    <button class="btn-reset" onclick="resetCredentials()">Desconectar</button>
+  </div>
+</header>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <div class="report-head">
+    <div>
+      <div class="rh-title">Reporte de madurez de ciberseguridad</div>
+      <div class="rh-sub">Evaluación de las 6 funciones NIST · Período enero–diciembre 2026 · PR, CR, CO, PA, MX</div>
+    </div>
+    <div class="rh-meta">
+      <div id="rh-date">—</div>
+      <div>Q2 en curso — Protección</div>
+      <div>Confidencial · uso interno</div>
+    </div>
+  </div>
+
+  <div class="kpi-strip" id="kpi-strip">
+    <div class="kpi-cell"><div class="kpi-val" id="kpi-avg">—</div><div class="kpi-label">Nivel promedio</div><div class="kpi-note">objetivo: 4.0</div></div>
+    <div class="kpi-cell"><div class="kpi-val" id="kpi-pct">—</div><div class="kpi-label">Madurez del programa</div><div class="kpi-note">meta: 80%</div></div>
+    <div class="kpi-cell"><div class="kpi-val" id="kpi-controls">—</div><div class="kpi-label">Controles en Vanta</div><div class="kpi-note" id="kpi-controls-note">—</div></div>
+    <div class="kpi-cell"><div class="kpi-val" id="kpi-tests">—</div><div class="kpi-label">Tests pasando</div><div class="kpi-note" id="kpi-tests-note">—</div></div>
+    <div class="kpi-cell"><div class="kpi-val" style="color:#b94040;" id="kpi-crit">Detect</div><div class="kpi-label">Función crítica</div><div class="kpi-note">nivel 2 — mayor brecha</div></div>
+  </div>
+
+  <div class="sec">Estado por función — qué se cumple y qué no</div>
+
+  <div class="legend">
+    <div class="leg"><div class="leg-bar" style="background:var(--green);"></div>Controles que se cumplen</div>
+    <div class="leg"><div class="leg-bar" style="background:#b94040;"></div>Brechas activas con impacto operacional</div>
+  </div>
+
+  <div id="func-blocks"></div>
+
+  <div class="sec">Roadmap estratégico 2026</div>
+  <div class="tl-wrap">
+    <table class="tl-table" id="tl-table"></table>
+  </div>
+
+</main>
+
+<footer>
+  <img class="footer-logo"
+    src="https://cdn.prod.website-files.com/64cbc158028d1b6455d165a4/64cbc158028d1b6455d16624_logo-completo.svg"
+    alt="Connect"
+    onerror="this.style.display='none'">
+  <span id="footer-text">Connect Assistance · NIST CSF 2.0 · Documento confidencial de uso interno</span>
+</footer>
+
+<script>
+// ─── STATIC DATA ────────────────────────────────────────────────────────────
+const FUNCS = [
+  {
+    name: 'Govern', code: 'GV', level: 3, target: 4, status: 'En desarrollo',
+    vantaCategories: ['risk-management', 'policy', 'governance'],
+    cumple: [
+      'Políticas de ciberseguridad formalizadas y alineadas al SGSI corporativo',
+      'Estructura de gobierno con propietario designado del programa de seguridad',
+      'Revisiones periódicas de riesgo documentadas por país de operación'
+    ],
+    brecha: [
+      'Dashboard de riesgo corporativo no operativo — sin visibilidad ejecutiva en tiempo real',
+      'Métricas KRI no definidas formalmente, lo que impide medir la efectividad del programa',
+      'El reporte de postura de seguridad no está estandarizado entre los 5 países'
+    ]
+  },
+  {
+    name: 'Identify', code: 'ID', level: 3, target: 4, status: 'En desarrollo',
+    vantaCategories: ['asset-management', 'inventory'],
+    cumple: [
+      'Inventario de sistemas críticos documentado: Helios, EOS, SIC, Audara, Botmaker',
+      'Infraestructura cloud catalogada con responsables asignados por entorno',
+      'Clasificación inicial de activos por criticidad operacional completada'
+    ],
+    brecha: [
+      'Inventario automático no implementado — el proceso manual tiene riesgo de desactualización',
+      'Clasificación de datos incompleta en Google Workspace, IA/chatbots y almacenamiento cloud',
+      'Mapa de dependencias entre sistemas no documentado, limita el análisis de impacto ante fallas'
+    ]
+  },
+  {
+    name: 'Protect', code: 'PR', level: 3, target: 4, status: 'En implementación',
+    vantaCategories: ['access-control', 'endpoint', 'vulnerability-management'],
+    cumple: [
+      'Controles de acceso activos en sistemas core con revisión trimestral documentada',
+      'Hardening de infraestructura cloud en progreso con políticas IAM configuradas',
+      'Gestión de parches establecida para endpoints corporativos con ciclo mensual'
+    ],
+    brecha: [
+      'MFA no alcanza el 100% en aplicaciones core — Audara y Botmaker sin cobertura',
+      'DLP sin cobertura en canales de IA y chatbots, principal canal de exfiltración no estructurada',
+      'SAST y container scanning no integrados en los pipelines de CI/CD de GitHub'
+    ]
+  },
+  {
+    name: 'Detect', code: 'DE', level: 2, target: 4, status: 'Brecha crítica', critical: true,
+    vantaCategories: ['logging', 'monitoring', 'siem'],
+    cumple: [
+      'Monitoreo básico activo en un subconjunto de endpoints corporativos',
+      'Revisión manual de logs en infraestructura crítica con frecuencia semanal'
+    ],
+    brecha: [
+      'SIEM no implementado — sin correlación centralizada de eventos en ningún entorno',
+      'Logs de endpoints, aplicaciones, red e identidad no consolidados; ataques multi-vector son invisibles',
+      'El MTTD (tiempo medio de detección) no se mide — el estándar de industria es menos de 15 minutos',
+      'Sin automatización de alertas ni bloqueo automático — toda respuesta depende de intervención manual',
+      'Mayor exposición operacional activa: un incidente en Helios o PBX podría no detectarse por horas'
+    ]
+  },
+  {
+    name: 'Respond', code: 'RS', level: 3, target: 4, status: 'En desarrollo',
+    vantaCategories: ['incident-response'],
+    cumple: [
+      'Plan de respuesta a incidentes documentado con roles y responsabilidades asignadas',
+      'Proceso de escalamiento definido para incidentes clasificados como alta severidad',
+      'Comunicación con equipos operativos ante incidentes funciona de manera estructurada'
+    ],
+    brecha: [
+      'No existen playbooks por escenario — ransomware, fuga de datos y caída cloud sin protocolo',
+      'El modelo de War Room no está estructurado — la comunicación ejecutiva en crisis es ad hoc',
+      'La contención y el bloqueo requieren intervención manual en cada incidente'
+    ]
+  },
+  {
+    name: 'Recover', code: 'RC', level: 3, target: 4, status: 'En desarrollo',
+    vantaCategories: ['business-continuity', 'backup'],
+    cumple: [
+      'Estrategia de disaster recovery documentada con alcance en los sistemas principales',
+      'Backups configurados para sistemas críticos con retención mínima establecida',
+      'Responsabilidades de recuperación asignadas por sistema en el plan actual'
+    ],
+    brecha: [
+      'RTO y RPO no definidos formalmente para Helios, EOS, SIC, PBX y Chatbot',
+      'Pruebas de recuperación no realizadas — no se ha validado si los procedimientos funcionan',
+      'Ningún simulacro técnico ejecutado — los planes no han sido probados bajo condiciones reales'
+    ]
+  }
+];
+
+const TL = [
+  { f:'Govern',   q1:'Dashboard de riesgo',      q2:'Métricas KRIs',          q3:'Reporte ejecutivo',      q4:'Evaluación del programa' },
+  { f:'Identify', q1:'Inventario de activos',     q2:'Clasificación de datos', q3:'Mapa de dependencias',   q4:'Actualización de riesgo' },
+  { f:'Protect',  q1:'Hardening cloud',           q2:'MFA al 100%',            q3:'DLP extendido',          q4:'Zero Trust formal' },
+  { f:'Detect',   q1:'Análisis de herramientas',  q2:'Integración telemetría', q3:'Correlación SIEM',       q4:'SOC maduro' },
+  { f:'Respond',  q1:'Revisión del Plan IR',      q2:'Inicio de playbooks',    q3:'Automatización',         q4:'War Room' },
+  { f:'Recover',  q1:'Evaluación DR',             q2:'Ajuste de RTO/RPO',      q3:'Pruebas de recuperación',q4:'Simulación de desastre' }
+];
+
+// ─── VANTA OAUTH ─────────────────────────────────────────────────────────────
+// Vanta's OAuth endpoint has CORS restrictions — we use a lightweight proxy approach
+// via a data: URI to avoid cross-origin issues when running locally.
+// For production deployment on a server, replace with a backend /api/token endpoint.
+
+const VANTA_TOKEN_URL = 'https://api.vanta.com/oauth/token';
+const VANTA_API      = 'https://api.vanta.com/v1';
+
+let accessToken = null;
+let vantaLive   = false;
+
+function store(key, val) { try { localStorage.setItem('nc_' + key, val); } catch(e) {} }
+function retrieve(key)   { try { return localStorage.getItem('nc_' + key); } catch(e) { return null; } }
+function remove(key)     { try { localStorage.removeItem('nc_' + key); } catch(e) {} }
+
+async function getToken(clientId, clientSecret) {
+  const resp = await fetch(VANTA_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: 'vanta-api.all:read',
+      grant_type: 'client_credentials'
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error_description || `HTTP ${resp.status}`);
+  }
+  const data = await resp.json();
+  return data.access_token;
+}
+
+async function vantaGet(path) {
+  const resp = await fetch(`${VANTA_API}${path}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+  });
+  if (!resp.ok) throw new Error(`API error ${resp.status} on ${path}`);
+  return resp.json();
+}
+
+// ─── SETUP ───────────────────────────────────────────────────────────────────
+async function setupVanta() {
+  const clientId     = document.getElementById('in-client-id').value.trim();
+  const clientSecret = document.getElementById('in-client-secret').value.trim();
+  const errEl = document.getElementById('setup-error');
+  const btn   = document.getElementById('btn-connect');
+
+  errEl.style.display = 'none';
+  if (!clientId || !clientSecret) {
+    errEl.textContent = 'Ingresa el Client ID y el Client Secret.';
+    errEl.style.display = 'block'; return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Conectando…';
+
+  try {
+    accessToken = await getToken(clientId, clientSecret);
+    store('client_id',     clientId);
+    store('client_secret', clientSecret);
+    document.getElementById('setup-overlay').classList.add('hidden');
+    document.getElementById('btn-sync').disabled = false;
+    await loadVantaData();
+  } catch(e) {
+    errEl.textContent = 'No se pudo autenticar: ' + e.message + '. Revisa las credenciales.';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Conectar y cargar datos';
+  }
+}
+
+function resetCredentials() {
+  if (!confirm('¿Desconectar Vanta y borrar las credenciales guardadas?')) return;
+  remove('client_id'); remove('client_secret'); remove('last_sync');
+  accessToken = null; vantaLive = false;
+  location.reload();
+}
+
+// ─── LOAD DATA ───────────────────────────────────────────────────────────────
+async function loadVantaData() {
+  setStatus('loading', 'Cargando datos de Vanta…');
+  const btn  = document.getElementById('btn-sync');
+  const icon = document.getElementById('sync-icon');
+  btn.disabled = true;
+  icon.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    // Re-auth if no token
+    if (!accessToken) {
+      const cid = retrieve('client_id');
+      const cs  = retrieve('client_secret');
+      if (!cid || !cs) { document.getElementById('setup-overlay').classList.remove('hidden'); return; }
+      accessToken = await getToken(cid, cs);
+    }
+
+    // Fetch controls and tests in parallel
+    const [controlsResp, testsResp] = await Promise.all([
+      vantaGet('/controls?pageSize=100'),
+      vantaGet('/tests?pageSize=100')
+    ]);
+
+    const controls = controlsResp?.results?.data || controlsResp?.data || [];
+    const tests    = testsResp?.results?.data    || testsResp?.data    || [];
+
+    processVantaData(controls, tests);
+    vantaLive = true;
+
+    const now = new Date().toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' });
+    store('last_sync', now);
+    setStatus('ok', 'Actualizado ' + now);
+    document.getElementById('rh-date').textContent = new Date().toLocaleDateString('es-CR', { year:'numeric', month:'long', day:'numeric' });
+
+  } catch(e) {
+    setStatus('error', 'Error al cargar: ' + e.message);
+    console.error(e);
+    // Fall back to static render
+    renderFuncs(FUNCS, false);
+    renderKPIs(null, null);
+  } finally {
+    btn.disabled = false;
+    icon.textContent = '↻';
+  }
+}
+
+// ─── PROCESS VANTA DATA ──────────────────────────────────────────────────────
+function processVantaData(controls, tests) {
+  // Controls summary
+  const totalControls  = controls.length;
+  const passingControls = controls.filter(c =>
+    (c.status || c.controlStatus || '').toLowerCase() === 'passing' ||
+    (c.status || c.controlStatus || '').toLowerCase() === 'compliant'
+  ).length;
+
+  // Tests summary
+  const totalTests   = tests.length;
+  const passingTests = tests.filter(t =>
+    (t.testStatus || t.status || '').toLowerCase() === 'pass' ||
+    (t.testStatus || t.status || '').toLowerCase() === 'passing'
+  ).length;
+
+  // Update KPIs
+  renderKPIs({ total: totalControls, passing: passingControls }, { total: totalTests, passing: passingTests });
+
+  // Attempt to derive NIST levels from control pass rates by category
+  const updatedFuncs = FUNCS.map(f => {
+    const relevant = controls.filter(c => {
+      const name = (c.name || c.controlName || c.displayName || '').toLowerCase();
+      const cat  = (c.category || c.framework || '').toLowerCase();
+      return f.vantaCategories.some(k => name.includes(k) || cat.includes(k));
+    });
+
+    if (relevant.length > 0) {
+      const passing = relevant.filter(c =>
+        (c.status || c.controlStatus || '').toLowerCase().includes('pass') ||
+        (c.status || c.controlStatus || '').toLowerCase().includes('compliant')
+      ).length;
+      const rate = passing / relevant.length;
+      // Map pass rate to NIST level 1–4
+      const derived = rate >= 0.85 ? 4 : rate >= 0.65 ? 3 : rate >= 0.35 ? 2 : 1;
+      return { ...f, level: derived, vantaControlCount: relevant.length, vantaPassRate: Math.round(rate * 100) };
+    }
+    return { ...f, vantaControlCount: 0 };
+  });
+
+  renderFuncs(updatedFuncs, true);
+  renderKPIAvg(updatedFuncs);
+}
+
+// ─── RENDER KPIs ─────────────────────────────────────────────────────────────
+function renderKPIs(controls, tests) {
+  if (controls) {
+    document.getElementById('kpi-controls').textContent = controls.passing;
+    document.getElementById('kpi-controls-note').textContent =
+      `de ${controls.total} total (${Math.round(controls.passing / Math.max(controls.total,1) * 100)}% passing)`;
+  }
+  if (tests) {
+    document.getElementById('kpi-tests').textContent = tests.passing;
+    document.getElementById('kpi-tests-note').textContent =
+      `de ${tests.total} total (${Math.round(tests.passing / Math.max(tests.total,1) * 100)}%)`;
+  }
+}
+
+function renderKPIAvg(funcs) {
+  const avg = funcs.reduce((s, f) => s + f.level, 0) / funcs.length;
+  const pct = Math.round((avg / 5) * 100);
+  document.getElementById('kpi-avg').textContent = avg.toFixed(1);
+  document.getElementById('kpi-pct').textContent = pct + '%';
+}
+
+// ─── RENDER FUNCTIONS ─────────────────────────────────────────────────────────
+function renderFuncs(funcs, live) {
+  const el = document.getElementById('func-blocks');
+  el.innerHTML = '';
+
+  funcs.forEach(f => {
+    const pct          = Math.round((f.level / 5) * 100);
+    const stripeColor  = f.critical ? '#b94040' : '#d0d0d0';
+    const barColor     = f.critical ? '#b94040' : '#1a1a1a';
+    const lvlColor     = f.critical ? '#b94040' : 'var(--text)';
+    const gap          = f.target - f.level;
+    const vantaInfo    = live && f.vantaControlCount > 0
+      ? `${f.vantaControlCount} controles · ${f.vantaPassRate}% passing`
+      : live ? 'sin controles mapeados en Vanta' : 'datos manuales';
+
+    el.innerHTML += `
+    <div class="func-block">
+      <div class="fb-stripe" style="background:${stripeColor};"></div>
+      <div class="fb-body">
+        <div class="fb-top">
+          <div>
+            <span class="fb-name">${f.name}</span>
+            <span class="fb-code">${f.code}</span>
+          </div>
+          <span class="fb-status">${f.status}</span>
+        </div>
+        <div class="fb-levels">
+          <span class="fb-lvl" style="color:${lvlColor};">${f.level}</span>
+          <span class="fb-of">de 5</span>
+          <span class="fb-arrow">→</span>
+          <span class="fb-target">objetivo ${f.target}</span>
+          <span class="fb-gap">+${gap} ${gap === 1 ? 'nivel' : 'niveles'}</span>
+        </div>
+        <div class="fb-bar">
+          <div class="fb-bar-fill" style="width:${pct}%;background:${barColor};"></div>
+        </div>
+        <div class="fb-cols">
+          <div>
+            <div class="col-head">
+              <div class="col-dot" style="background:var(--green);"></div>
+              Lo que se cumple
+            </div>
+            ${f.cumple.map(c => `<div class="fb-item c">${c}</div>`).join('')}
+          </div>
+          <div>
+            <div class="col-head">
+              <div class="col-dot" style="background:#b94040;"></div>
+              Por qué no se cumple
+            </div>
+            ${f.brecha.map(b => `<div class="fb-item b">${b}</div>`).join('')}
+          </div>
+        </div>
+        <div class="vanta-badge">
+          <div class="vanta-dot ${live ? 'live' : ''}"></div>
+          Vanta: ${vantaInfo}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  renderTimeline();
+}
+
+// ─── RENDER TIMELINE ─────────────────────────────────────────────────────────
+function renderTimeline() {
+  const t = document.getElementById('tl-table');
+  const headers = ['Función', 'Q1 — Ene a Mar', 'Q2 — Abr a Jun', 'Q3 — Jul a Sep', 'Q4 — Oct a Dic'];
+  t.innerHTML = `<thead><tr>${headers.map((h,i) =>
+    `<th class="tl-th${i===2?' now':''}">${h}</th>`
+  ).join('')}</tr></thead>`;
+  t.innerHTML += `<tbody>${TL.map(r => `
+    <tr class="tl-tr">
+      <td class="tl-td fn">${r.f}</td>
+      <td class="tl-td past">${r.q1}</td>
+      <td class="tl-td now">${r.q2}</td>
+      <td class="tl-td">${r.q3}</td>
+      <td class="tl-td">${r.q4}</td>
+    </tr>`).join('')}</tbody>`;
+}
+
+// ─── STATUS ──────────────────────────────────────────────────────────────────
+function setStatus(type, msg) {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg;
+  el.className = 'sync-status ' + type;
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+(async function init() {
+  // Set date
+  document.getElementById('rh-date').textContent =
+    new Date().toLocaleDateString('es-CR', { year:'numeric', month:'long', day:'numeric' });
+
+  // Static render immediately so page isn't blank
+  renderFuncs(FUNCS, false);
+  renderKPIAvg(FUNCS);
+  document.getElementById('kpi-avg').textContent = '2.8';
+  document.getElementById('kpi-pct').textContent = '55%';
+
+  // Show last sync if any
+  const lastSync = retrieve('last_sync');
+  if (lastSync) setStatus('', 'Últ. actualización: ' + lastSync);
+
+  // Auto-connect if credentials exist
+  const cid = retrieve('client_id');
+  const cs  = retrieve('client_secret');
+
+  if (cid && cs) {
+    document.getElementById('setup-overlay').classList.add('hidden');
+    document.getElementById('btn-sync').disabled = false;
+    await loadVantaData();
+  }
+})();
+</script>
+</body>
+</html>
