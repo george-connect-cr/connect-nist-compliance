@@ -396,7 +396,7 @@ const TL = [
 // via a data: URI to avoid cross-origin issues when running locally.
 // For production deployment on a server, replace with a backend /api/token endpoint.
 
-const VANTA_TOKEN_URL = 'https://api.vanta.com/oauth/token';
+const VANTA_TOKEN_URL = 'https://vanta-proxy.jmarin.workers.dev';
 const VANTA_API      = 'https://api.vanta.com/v1';
 
 let accessToken = null;
@@ -413,7 +413,7 @@ async function getToken(clientId, clientSecret) {
     body: JSON.stringify({
       client_id: clientId,
       client_secret: clientSecret,
-      scope: 'vanta-api.all:read',
+      scope: 'vanta-api.all:read vanta-api.all:write',
       grant_type: 'client_credentials'
     })
   });
